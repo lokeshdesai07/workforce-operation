@@ -10,6 +10,54 @@ sync correctness through live Realtime panels.
 > Read [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the full design
 > writeup. This README is just how to run it.
 
+## Architecture
+
+```mermaid
+flowchart LR
+    subgraph Mobile["Mobile (Expo / React Native)"]
+        direction TB
+        UI["UI<br/>expo-router · TanStack Query"]
+        DB[("SQLite<br/>domain tables + outbox")]
+        SW["Sync Worker<br/>NetInfo · AppState · timer"]
+        UI -->|"mutation<br/>(single tx)"| DB
+        DB -->|"drain oldest-first<br/>by op_id (UUID v7)"| SW
+    end
+
+    subgraph Supabase["Supabase (Postgres + Realtime)"]
+        direction TB
+        RPC["apply_op RPC<br/>idempotent · server-authoritative"]
+        DOM[("Domain tables<br/>workers · inspections ·<br/>check_in · check_out · report")]
+        IDEM[("idempotency_keys")]
+        CONF[("sync_conflicts<br/>LWW · both snapshots")]
+        RT{{"Realtime<br/>publication"}}
+        RPC --> DOM
+        RPC --> IDEM
+        RPC -.->|"on conflict"| CONF
+        DOM --> RT
+        CONF --> RT
+    end
+
+    subgraph Admin["Admin Console (Next.js)"]
+        direction TB
+        APANEL["Live Panels<br/>inspections · conflicts ·<br/>idempotency log"]
+        AAPI["Server Routes<br/>service-role key"]
+    end
+
+    SW -->|"HTTPS · op_id as<br/>idempotency key"| RPC
+    RT -->|"cursor pull on<br/>session / subscribe"| DB
+    RT -->|"subscribe"| APANEL
+    AAPI -->|"create worker /<br/>assign inspection"| DOM
+
+    classDef store fill:#fef3c7,stroke:#b45309,color:#78350f
+    classDef svc fill:#dbeafe,stroke:#1e40af,color:#1e3a8a
+    classDef event fill:#ede9fe,stroke:#6d28d9,color:#4c1d95
+    class DB,DOM,IDEM,CONF store
+    class RPC,AAPI svc
+    class RT event
+```
+
+**Flow at a glance.** Every mobile mutation lands in SQLite *and* the outbox in one transaction, so the UI updates instantly and survives force-quits. The sync worker drains the outbox oldest-first, calling `apply_op` with `op_id` as the idempotency key — retries are free, duplicates are dropped. The server is authoritative: on conflict it writes both snapshots to `sync_conflicts` (LWW, server wins). Realtime fans out every committed change to other devices and the admin console.
+
 ## Repo layout
 
 ```
