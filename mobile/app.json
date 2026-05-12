@@ -1,0 +1,37 @@
+{
+  "expo": {
+    "name": "Workforce Mobile",
+    "slug": "workforce-mobile",
+    "scheme": "workforce",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": false,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.example.workforce",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Used to record check-in / check-out at inspection sites."
+      }
+    },
+    "android": {
+      "package": "com.example.workforce",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Used to record check-in / check-out at inspection sites."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": false
+    }
+  }
+}
